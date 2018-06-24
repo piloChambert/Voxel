@@ -61,7 +61,7 @@ end
 
 camera = {
 	position = {x = 256, y = 50, z = 256},
-	fov = 0.4 * math.pi,
+	fov = 0.6 * math.pi,
 	yaw = 0,
 	pitch = 0,
 	roll = 0
@@ -137,11 +137,12 @@ function love.update(dt)
 
 	-- side motion
 	local rot = body.orientation.x * body.orientation.z
-	acc.x = acc.x - body.orientation.z * right.x * 32.0
-	acc.y = acc.y - body.orientation.z * right.y * 32.0
-	acc.z = acc.z - body.orientation.z * right.z * 32.0
+	--acc.x = acc.x - body.orientation.z * right.x * 32.0
+	--acc.y = acc.y - body.orientation.z * right.y * 32.0
+	--acc.z = acc.z - body.orientation.z * right.z * 32.0
 
-	body.angularVelocity.y = -rot * 2.0
+	--body.angularVelocity.y = -rot * 2.0
+	body.angularVelocity.y = body.orientation.z * 2.0
 
 	-- air drag
 	acc.x = acc.x - math.sign(body.linearVelocity.x) * (body.linearVelocity.x * body.linearVelocity.x) * 0.01
@@ -172,15 +173,13 @@ end
 
 function getMapData(x, y)
 	local _x = math.fmod(math.floor(x), map.width)
+	if _x < 0 then _x = _x + map.width end
+
 	local _y = math.fmod(math.floor(y), map.height)
+	if _y < 0 then _y = _y + map.height end
 
-	if _x < 0 then
-		_x = _x + map.width
-	end
-
-	if _y < 0 then
-		_y = _y + map.height
-	end
+	--local _x = math.floor(math.min(math.max(0, x), map.width - 1))
+	--local _y = math.floor(math.min(math.max(0, y), map.height - 1))
 
 	return map[_x + _y * map.width]
 end
@@ -228,7 +227,7 @@ function renderVoxel(camera, scale_height, distance, screen_width, screen_height
 	local hFov = screen_height / (tanfov * screen_width)
 
 	-- initialize visibility array. Y position for each column on screen 
-	for i = 0,screen_width do
+	for i = 0, screen_width do
 		yBuffer[i] = screen_height
 	end
 
@@ -261,21 +260,13 @@ function renderVoxel(camera, scale_height, distance, screen_width, screen_height
         local dx = (pright.x - pleft.x) / screen_width
         local dy = (pright.y - pleft.y) / screen_width
 
-		local fog = math.exp(-z * 0.0001)
+		local fog = math.exp(-z * 0.001)
 		--print(fog)
 
         -- Raster line and draw a vertical line for each segment
 		for i = 0, screen_width do
-			local data = nil
+			local data = getMapData(pleft.x, pleft.y)
 
-			if z < 32.0 then
-				data = getMapDataSmooth(pleft.x, pleft.y)
-			else
-				data = getMapData(pleft.x, pleft.y)
-			end
-			
-
-			local sinroll = math.sin(camera.roll)
 			local roll = (screen_width / 2 - i) * tanroll
 
 			local height_on_screen = ((camera.position.y - data[4]) / z) * hFov * screen_height + horizon + roll
@@ -288,12 +279,14 @@ function renderVoxel(camera, scale_height, distance, screen_width, screen_height
 			end
 
             pleft.x = pleft.x + dx
-            pleft.y = pleft.y + dy
+			pleft.y = pleft.y + dy
 		end
 
         -- Go to next line and increase step size when you are far away
-        z = z + dz
-		dz = dz * 1.01
+		z = z + dz	
+		if z > 512 then
+			dz = dz + 0.2
+		end
 		
 		lineCount = lineCount + 1
 	end
@@ -308,7 +301,7 @@ function love.draw()
 
 	love.graphics.setLineStyle("rough")
 	love.graphics.setLineWidth(1.0)
-	renderVoxel(camera, 32.0, 512, canvasResolution.width, canvasResolution.height)
+	renderVoxel(camera, 32.0, 4096, canvasResolution.width, canvasResolution.height)
 
 	love.graphics.setColor(1, 1, 1, 1)
 	love.graphics.setCanvas()
